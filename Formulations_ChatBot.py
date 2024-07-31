@@ -82,6 +82,7 @@ def main():
     if st.button("Refresh Knowledge Base"):
         st.cache_data.clear()
         st.success("Knowledge base refreshed. Fetching latest data...")
+        st.rerun()
 
     # Fetch knowledge base data
     knowledge_base = get_sheet_data(spreadsheet_id, range_name)
@@ -120,8 +121,8 @@ def main():
             # Add AI response to chat history
             st.session_state.chat_history.append({"role": "ai", "content": response})
 
-            # Clear the input box
-            st.experimental_rerun()
+            # Clear the input box and rerun
+            st.rerun()
 
     # Save button (only show if there's a response to save)
     if st.session_state.chat_history and st.session_state.chat_history[-1]['role'] == 'ai':
@@ -132,9 +133,8 @@ def main():
     # Option to clear chat history
     if st.button("Clear Chat History"):
         st.session_state.chat_history = []
-        st.experimental_rerun()
+        st.rerun()
 
 if __name__ == "__main__":
     main()
-
 
