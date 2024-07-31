@@ -1,22 +1,22 @@
-import os
+import json
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from openai import OpenAI
 import streamlit as st
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Initialize OpenAI client with the API key from Streamlit secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-SERVICE_ACCOUNT_FILE = r'C:\Users\Admin\Formulations_Interface\service_account.json'
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def get_sheet_data(spreadsheet_id, range_name):
     try:
-        creds = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        # Load Google Sheets credentials from Streamlit secrets
+        creds_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict, scopes=SCOPES)
+        
         service = build('sheets', 'v4', credentials=creds)
         sheet = service.spreadsheets()
         result = sheet.values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
@@ -46,10 +46,12 @@ def generate_response(prompt, knowledge_base):
         return "I'm sorry, but I encountered an error while generating a response."
 
 def main():
-    st.title("AI Chatbot with Google Sheets Knowledge Base")
+    st.title("JYNN")
 
-    spreadsheet_id = '1Hfan1Go2uYTzytDwhApKVnWHoFCcVVHCGSlpTKXEUPY'
-    range_name = 'Sheet1!A1:R'
+    # Get spreadsheet ID and range from Streamlit secrets
+    spreadsheet_id = st.secrets["GOOGLE_SHEETS_ID"]
+    range_name = st.secrets["GOOGLE_SHEETS_RANGE"]
+    
     knowledge_base = get_sheet_data(spreadsheet_id, range_name)
     
     if knowledge_base:
