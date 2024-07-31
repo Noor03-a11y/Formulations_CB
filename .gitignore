@@ -2,3 +2,4 @@
 venv/
 *.pyc
 .env
+service_account.json
