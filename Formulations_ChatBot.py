@@ -4,6 +4,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from openai import OpenAI
 import streamlit as st
+from streamlit_chat import message
 
 # Initialize OpenAI client with the API key from Streamlit secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -71,18 +72,42 @@ def save_response(spreadsheet_id, response):
     except Exception as e:
         st.error(f"Error saving response: {str(e)}")
 
+
 def main():
-    st.title("JYNN - Your AI Assistant")
+    st.set_page_config(page_title="JYNN ", layout="wide")
+
+    # Custom CSS for ChatGPT-like interface
+    st.markdown("""
+    <style>
+    .stTextInput > div > div > input {
+        background-color: #f0f2f6;
+    }
+    .stButton > button {
+        width: 100%;
+        border-radius: 20px;
+    }
+    .stMarkdown {
+        font-size: 18px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("JYNN")
 
     # Get spreadsheet ID and range from Streamlit secrets
     spreadsheet_id = st.secrets["GOOGLE_SHEETS_ID"]
     range_name = st.secrets["GOOGLE_SHEETS_RANGE"]
 
-    # Add refresh button
-    if st.button("Refresh Knowledge Base"):
-        st.cache_data.clear()
-        st.success("Knowledge base refreshed. Fetching latest data...")
-        st.rerun()
+    # Sidebar for refresh and clear buttons
+    with st.sidebar:
+        if st.button("Refresh Knowledge Base"):
+            st.cache_data.clear()
+            st.success("Knowledge base refreshed. Fetching latest data...")
+            st.rerun()
+        
+        if st.button("Clear Chat History"):
+            st.session_state.messages = []
+            st.rerun()
 
     # Fetch knowledge base data
     knowledge_base = get_sheet_data(spreadsheet_id, range_name)
@@ -94,47 +119,40 @@ def main():
     # Convert knowledge base to string
     knowledge_base_str = "\n".join([" ".join(row) for row in knowledge_base])
 
-    # Create a container for chat history
-    chat_container = st.container()
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    # Initialize chat history in session state if it doesn't exist
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-
-    # Display chat history
-    with chat_container:
-        for message in st.session_state.chat_history:
-            st.text_area("You:" if message['role'] == 'user' else "AI:", value=message['content'], height=100, disabled=True)
+    # Display chat messages
+    for i, msg in enumerate(st.session_state.messages):
+        if msg["role"] == "user":
+            message(msg["content"], is_user=True, key=f"user_msg_{i}")
+        else:
+            message(msg["content"], key=f"ai_msg_{i}")
 
     # User input
-    user_input = st.text_input("Ask your question:", "")
+    user_input = st.text_input("Ask your question:", key="user_input")
 
     # Send button
-    if st.button("Send Karo"):
+    if st.button("Send"):
         if user_input:
             # Add user message to chat history
-            st.session_state.chat_history.append({"role": "user", "content": user_input})
+            st.session_state.messages.append({"role": "user", "content": user_input})
 
             # Generate AI response
             response = generate_response(user_input, knowledge_base_str)
 
             # Add AI response to chat history
-            st.session_state.chat_history.append({"role": "ai", "content": response})
+            st.session_state.messages.append({"role": "assistant", "content": response})
 
             # Clear the input box and rerun
             st.rerun()
 
     # Save button (only show if there's a response to save)
-    if st.session_state.chat_history and st.session_state.chat_history[-1]['role'] == 'ai':
-        if st.button("Save Karo"):
-            last_response = st.session_state.chat_history[-1]['content']
+    if st.session_state.messages and st.session_state.messages[-1]['role'] == 'assistant':
+        if st.button("Save Last Response"):
+            last_response = st.session_state.messages[-1]['content']
             save_response(spreadsheet_id, last_response)
-
-    # Option to clear chat history
-    if st.button("Clear Chat History"):
-        st.session_state.chat_history = []
-        st.rerun()
 
 if __name__ == "__main__":
     main()
-
